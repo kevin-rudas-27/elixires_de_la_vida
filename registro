@@ -1,0 +1,146 @@
+package com.example.elixiresdelavida;
+
+// Importamos librerías
+import android.app.AlertDialog;
+import android.content.Intent;
+import android.os.Bundle;
+import android.text.InputType;
+import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Spinner;
+import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.activity.EdgeToEdge;
+
+public class Registro extends AppCompatActivity {
+
+    // Declaramos variables de controles
+    EditText ETnom, ETape, ETcorreo, ETtipousuario, ETusuario, ETcontraseña, ETconfirm;
+    Button BTregist, BTreg1;
+    DB_Proy db_proy;
+    Spinner opc;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        EdgeToEdge.enable(this);
+        setContentView(R.layout.activity_registro);
+
+        // Instanciamnos los objetos
+        ETnom = (EditText) findViewById(R.id.NombreRegis);
+        ETape = (EditText) findViewById(R.id.ApeRegis);
+        ETcorreo = (EditText) findViewById(R.id.CorreoRegis);
+        ETusuario = (EditText) findViewById(R.id.usuarioRegis);
+        ETcontraseña = (EditText) findViewById(R.id.contraseñaRegis);
+        ETconfirm = (EditText) findViewById(R.id.ContraRegis);
+        BTregist = (Button) findViewById(R.id.btnRegis);
+        BTreg1 = (Button) findViewById(R.id.btnregresarIV);
+
+        // Asigna el Spinner con su ID correcto
+        opc = findViewById(R.id.SNRopc);
+
+        // Inicializamos la base de datos
+        db_proy = new DB_Proy(this);
+
+        // Lista de opciones
+        String[] opciones = {"Administrador", "Cajera", "Cliente"};
+
+        // Adaptador
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, opciones);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+
+        // Asignar el adaptador al Spinner
+        opc.setAdapter(adapter);
+
+        // Permite el registro de los usuarios o de lo contrario no
+        BTregist.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                // Variables que obtienen los datos para registrar
+                String nombre = ETnom.getText().toString();
+                String apellido = ETape.getText().toString();
+                String correo = ETcorreo.getText().toString();
+                String usuario = ETusuario.getText().toString();
+                String tipousuario = opc.getSelectedItem().toString().toLowerCase();
+                String contraseña = ETcontraseña.getText().toString();
+                String confirm = ETconfirm.getText().toString();
+                Intent inicSes = new Intent(Registro.this, InicioSesion.class);
+
+                // Validación
+                if (nombre.isEmpty() || apellido.isEmpty() || correo.isEmpty() ||
+                        usuario.isEmpty() || contraseña.isEmpty() || confirm.isEmpty()) {
+                    Toast.makeText(Registro.this, "Por favor completa todos los campos", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                // Validación
+                if (!contraseña.equals(confirm)) {
+                    Toast.makeText(Registro.this, "La contraseña y la confirmación no coinciden", Toast.LENGTH_SHORT).show();
+                    ETcontraseña.setText("");
+                    ETconfirm.setText("");
+                    return;
+                }
+
+                // Si el usuario es administrador o cajera pide una clave especial
+                if (tipousuario.equals("administrador") || tipousuario.equals("cajera")) {
+                    AlertDialog.Builder builder = new AlertDialog.Builder(Registro.this);
+                    builder.setTitle("Código de acceso para " + tipousuario);
+
+                    final EditText input = new EditText(Registro.this);
+                    input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                    builder.setView(input);
+
+                    builder.setPositiveButton("Aceptar", (dialog, which) -> {
+                        String codigoIngresado = input.getText().toString();
+
+                        // Verificamos el código según el tipo de usuario, si es correcto permite el registro, de lo contrario no
+                        if ((tipousuario.equals("administrador") && codigoIngresado.equals("KJC4")) ||
+                                (tipousuario.equals("cajera") && codigoIngresado.equals("KJC41"))) {
+
+                            boolean exito = db_proy.registrarUsuario(Registro.this, nombre, apellido, correo, usuario, tipousuario, contraseña);
+                            if (exito) {
+                                Toast.makeText(Registro.this, tipousuario + " registrado", Toast.LENGTH_SHORT).show();
+                                limpiarCampos();
+                            }
+                            startActivity(inicSes);
+                        } else {
+                            Toast.makeText(Registro.this, "Código incorrecto. No se puede registrar como " + tipousuario + ".", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+
+                    builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
+                    builder.show();
+                } else {
+                    // Registro normal para cliente
+                    boolean exito = db_proy.registrarUsuario(Registro.this, nombre, apellido, correo, usuario, tipousuario, contraseña);
+                    if (exito) {
+                        Toast.makeText(Registro.this, "Usuario registrado", Toast.LENGTH_SHORT).show();
+                        limpiarCampos();
+                        startActivity(inicSes);
+                    }
+                }
+
+            }
+        });
+
+        // Botón que permite regresar a la pantalla anterior
+        BTreg1.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Intent intent = new Intent(Registro.this, InicioSesion.class);
+                startActivity(intent);
+            }
+        });
+    }
+    // Función para limpiar los campos en cada registro
+    private void limpiarCampos() {
+        ETnom.setText("");
+        ETape.setText("");
+        ETcorreo.setText("");
+        ETusuario.setText("");
+        ETcontraseña.setText("");
+        ETconfirm.setText("");
+    }
+}
+
+// Gabriel Cortez, José Ramos, Kevin Rudas, 9IL-141
