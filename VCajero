@@ -1,0 +1,212 @@
+package com.example.elixiresdelavida;
+
+// Importamos las librerías
+import android.content.Intent;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.*;
+import androidx.appcompat.app.AppCompatActivity;
+import java.util.ArrayList;
+import java.util.HashMap;
+import android.database.Cursor;
+
+public class VCajero extends AppCompatActivity {
+
+    // Se crean las variables necesarias
+    Spinner spinnerProductos;
+    EditText etcliente, etCantidad;
+    Button btnAgregarProducto, btnLimpiarOpc, btnRegistrarCompra, btnRegresar;
+    ListView listaProductos;
+    TextView tvTotal, itbmsView;
+    ArrayList<String> listaCarrito = new ArrayList<>();
+    ArrayAdapter<String> adapter;
+    HashMap<Integer, String> nombresProductos = new HashMap<>();
+    HashMap<Integer, Double> preciosProductos = new HashMap<>();
+    ArrayList<Integer> idsProductos = new ArrayList<>();
+    double total = 0.0;
+    DB_Proy db_proy;
+    int idTrabajador = -1;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_vcajero);
+
+        // Se vinculan los controles
+        spinnerProductos = findViewById(R.id.spinnerProductos);
+        etCantidad = findViewById(R.id.etCantidad);
+        etcliente = findViewById(R.id.etCliente);
+        btnAgregarProducto = findViewById(R.id.btnAgregarProducto);
+        btnLimpiarOpc = findViewById(R.id.btnLimpiarOpc); // botón para limpiar
+        listaProductos = findViewById(R.id.listaProductos);
+        tvTotal = findViewById(R.id.tvTotal);
+        itbmsView = findViewById(R.id.itbms);
+        btnRegistrarCompra = findViewById(R.id.btnRegistrar);
+        btnRegresar = findViewById(R.id.btnregresarI);
+
+        // Se instancia la base de datos, y se obtiene el id del trabajador
+        db_proy = new DB_Proy(this);
+        idTrabajador = getIntent().getIntExtra("id_cajera", -1);
+
+        // Cargamos productos desde la base de datos
+        Cursor cursor = db_proy.obtenerProductos();
+        ArrayList<String> productosLista = new ArrayList<>();
+
+        // Mapa de productos con precios
+        if (cursor != null) {
+            while (cursor.moveToNext()) {
+                int id = cursor.getInt(0);
+                String nombre = cursor.getString(1);
+                String descripcion = cursor.getString(2);
+                double precio = cursor.getDouble(3);
+                int stock = cursor.getInt(4);
+
+                productosLista.add(nombre);
+                idsProductos.add(id);
+                nombresProductos.put(id, nombre);
+                preciosProductos.put(id, precio);
+            }
+            cursor.close();
+        }
+        ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, productosLista);
+        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerProductos.setAdapter(spinnerAdapter);
+
+        // Adaptador del ListView
+        adapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_list_item_1, listaCarrito);
+        listaProductos.setAdapter(adapter);
+
+        // Botón que agrega los productos a la compra
+        btnAgregarProducto.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Variables para los productos
+                int pos = spinnerProductos.getSelectedItemPosition();
+                int idProd = idsProductos.get(pos);
+                String nombre = nombresProductos.get(idProd);
+                double precio = preciosProductos.get(idProd);
+                String cantidadStr = etCantidad.getText().toString().trim();
+
+                if (cantidadStr.isEmpty()) {
+                    Toast.makeText(VCajero.this, "Ingrese la cantidad", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                int cantidad = Integer.parseInt(cantidadStr);
+                if (cantidad <= 0) {
+                    Toast.makeText(VCajero.this, "Cantidad inválida", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                int stockDisponible = db_proy.obtenerCantidadDisponible(idProd);
+                if (stockDisponible == -1) {
+                    Toast.makeText(VCajero.this, "Error al consultar stock del producto.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                if (cantidad > stockDisponible) {
+                    Toast.makeText(VCajero.this, "No hay suficiente stock disponible. Solo hay " + stockDisponible + " unidades.", Toast.LENGTH_LONG).show();
+                    etCantidad.setText("");
+                    return;
+                }
+
+
+                double subtotal = precio * cantidad;
+                listaCarrito.add(nombre + " x" + cantidad + " = $" + String.format("%.2f", subtotal));
+                adapter.notifyDataSetChanged();
+
+                total += subtotal;
+                double itbms = total * 0.10;
+                double totalConImp = total + itbms;
+
+                itbmsView.setText("Impuestos: $" + String.format("%.2f", itbms));
+                tvTotal.setText("Total: $" + String.format("%.2f", totalConImp));
+
+                etCantidad.setText("");
+            }
+        });
+
+        // Botón para limpiar los campos
+        btnLimpiarOpc.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                listaCarrito.clear();
+                adapter.notifyDataSetChanged();
+                total = 0.0;
+                itbmsView.setText("Impuestos: $0.00");
+                tvTotal.setText("Total: $0.00");
+                Toast.makeText(VCajero.this, "Carrito limpiado", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Botón que registra la compra
+        btnRegistrarCompra.setOnClickListener(v -> {
+            if (listaCarrito.isEmpty()) {
+                Toast.makeText(this, "Carrito vacío", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            double itbms = total * 0.10;
+            double totalFinal = total + itbms;
+
+            String nomCliente = etcliente.getText().toString();
+
+            // Inserta la compra y dinámicamente actualiza la base de datos
+            long idCompra = db_proy.insertarCompraCajero(idTrabajador, totalFinal, nomCliente);
+            if (idCompra != -1) {
+                for (int i = 0; i < listaCarrito.size(); i++) {
+                    String item = listaCarrito.get(i);
+                    int pos = item.indexOf(" x");
+                    String nombreProd = item.substring(0, pos);
+                    int idProd = db_proy.obtenerIdProductoPorNombre(nombreProd);
+
+                    String afterX = item.substring(item.indexOf("x") + 1);
+                    String cantidadStr = afterX.substring(0, afterX.indexOf("=")).trim();
+
+                    // Eliminar cualquier letra (por si el formato es "x1")
+                    cantidadStr = cantidadStr.replaceAll("[^0-9]", "");
+
+                    int cantidad = 0;
+                    if (!cantidadStr.isEmpty()) {
+                        cantidad = Integer.parseInt(cantidadStr);
+                    } else {
+                        Toast.makeText(this, "Error al leer cantidad del producto: " + item, Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    double precio = preciosProductos.get(idProd);
+
+                    db_proy.insertarDetalleCompra((int) idCompra, idProd, cantidad, precio);
+                    db_proy.reducirInventario(idProd, cantidad);
+                }
+
+                Toast.makeText(this, "Compra registrada", Toast.LENGTH_SHORT).show();
+                listaCarrito.clear();
+                adapter.notifyDataSetChanged();
+                total = 0.0;
+                itbmsView.setText("Impuestos: $0.00");
+                tvTotal.setText("Total: $0.00");
+            } else {
+                Toast.makeText(this, "Error al registrar compra", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Botón para regresar a la pantalla anterior
+        btnRegresar.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Intent intent = new Intent(VCajero.this, InicioSesion.class);
+                startActivity(intent);
+            }
+        });
+
+    }
+
+    // Permite que no se pueda regresar tocando el boton regresar del telefono
+    @Override
+    public void onBackPressed() {
+
+    }
+}
+
+// Gabriel Cortez, José Ramos, Kevin Rudas, 9IL-141
