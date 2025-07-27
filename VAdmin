@@ -1,0 +1,500 @@
+package com.example.elixiresdelavida;
+
+// Importamos Librerías
+import android.content.Intent;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import android.widget.LinearLayout;
+import android.database.Cursor;
+import android.widget.Button;
+import android.widget.TextView;
+import android.widget.EditText;
+import android.widget.Toast;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import android.graphics.Color;
+
+public class VAdmin extends AppCompatActivity {
+
+    // RadioGroups
+    RadioGroup radioGroup, RdioProductos, RdioUsuario, RdioPedidos;
+
+    // RadioButtons principales
+    RadioButton RBProductos, RBPedidos, RBUsuarios;
+
+    // RadioButtons secundarios
+    RadioButton AgregarProd, ModificarProd;
+    RadioButton ModificarUs;
+
+    // Layouts de campos
+    ConstraintLayout CamposAdd, CamposMod;
+
+    LinearLayout contenedorVertical;
+
+    EditText Acampo1, Acampo2, Acampo3, Acampo4;
+    EditText Mcampo1, Mcampo2, Mcampo3, Mcampo4;
+
+    Button BTAdd, BTMod, BTEliminar, BTRegAd;
+
+    DB_Proy db_proy;
+
+    int idSeleccionado = -1;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // EdgeToEdge.enable(this); // opcional, coméntalo si no lo usas
+        setContentView(R.layout.activity_vadmin);
+
+        // Instanciamos la base de datos
+        db_proy = new DB_Proy(this);
+
+        // Enlazar elementos del layout
+        contenedorVertical = findViewById(R.id.contenedorVertical);
+
+        // Vinculamos los controles
+        radioGroup = findViewById(R.id.radioGroup);
+        RdioProductos = findViewById(R.id.RdioProductos);
+        RdioUsuario = findViewById(R.id.RdioUsuario);
+        RdioPedidos = findViewById(R.id.RdioPedidos);
+
+        RBProductos = findViewById(R.id.RBProductos);
+        RBPedidos = findViewById(R.id.RBPedidos);
+        RBUsuarios = findViewById(R.id.RBusuarios);
+
+        AgregarProd = findViewById(R.id.AgregarProd);
+        ModificarProd = findViewById(R.id.ModificarProd);
+
+        ModificarUs = findViewById(R.id.ModificarUs);
+
+        CamposAdd = findViewById(R.id.CamposAdd);
+        CamposMod = findViewById(R.id.CamposMod);
+
+        Acampo1 = findViewById(R.id.APCampo1);
+        Acampo2 = findViewById(R.id.APCampo2);
+        Acampo3 = findViewById(R.id.APCampo3);
+        Acampo4 = findViewById(R.id.APCampo4);
+
+        Mcampo1 = findViewById(R.id.MoCampo1);
+        Mcampo2 = findViewById(R.id.MoCampo2);
+        Mcampo3 = findViewById(R.id.MoCampo3);
+        Mcampo4 = findViewById(R.id.MoCampo4);
+
+        BTAdd = findViewById(R.id.btnAgregar);
+        BTMod = findViewById(R.id.btnModificar);
+        BTEliminar = findViewById(R.id.btnEliminar);
+        BTRegAd = findViewById(R.id.btnRegresarAd);
+
+        // Ocultar todo inicialmente
+        ocultarTodo();
+
+        // Mostrar el grupo secundario según selección principal
+        radioGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            idSeleccionado = -1; // reset selección
+            ocultarTodo();
+
+            if (checkedId == R.id.RBProductos) {
+                RdioProductos.setVisibility(View.VISIBLE);
+                mostrarProductosVertical();
+            } else if (checkedId == R.id.RBusuarios) {
+                RdioUsuario.setVisibility(View.VISIBLE);
+                mostrarUsuariosVertical();
+            } else if (checkedId == R.id.RBPedidos) {
+                RdioPedidos.setVisibility(View.VISIBLE);
+                mostrarPedidosVertical();
+            }
+        });
+
+        // Acciones según botón secundario en Productos
+        RdioProductos.setOnCheckedChangeListener((group, checkedId) -> {
+            CamposAdd.setVisibility(View.GONE);
+            CamposMod.setVisibility(View.GONE);
+            BTAdd.setVisibility(View.GONE);
+            BTEliminar.setVisibility(View.GONE);
+            BTMod.setVisibility(View.GONE);
+
+            if (checkedId == R.id.AgregarProd) {
+                CamposAdd.setVisibility(View.VISIBLE);
+                BTAdd.setVisibility(View.VISIBLE);
+            } else if (checkedId == R.id.ModificarProd) {
+                CamposMod.setVisibility(View.VISIBLE);
+                BTMod.setVisibility(View.VISIBLE);
+            } else if(checkedId == R.id.EliminarProd) {
+                BTEliminar.setVisibility(View.VISIBLE);
+            }
+        });
+
+        // Acciones según botón secundario en Usuarios
+        RdioUsuario.setOnCheckedChangeListener((group, checkedId) -> {
+            CamposAdd.setVisibility(View.GONE);
+            CamposMod.setVisibility(View.GONE);
+            BTAdd.setVisibility(View.GONE);
+            BTEliminar.setVisibility(View.GONE);
+            BTMod.setVisibility(View.GONE);
+
+            if (checkedId == R.id.ModificarUs) {
+                CamposMod.setVisibility(View.VISIBLE);
+                BTMod.setVisibility(View.VISIBLE);
+            } else if(checkedId == R.id.EliminarUs) {
+                BTEliminar.setVisibility(View.VISIBLE);
+            }
+        });
+
+        // Acciones según botón secundario en Pedidos
+        RdioPedidos.setOnCheckedChangeListener((group, checkedId) -> {
+            CamposAdd.setVisibility(View.GONE);
+            CamposMod.setVisibility(View.GONE);
+            BTAdd.setVisibility(View.GONE);
+            BTEliminar.setVisibility(View.GONE);
+            BTMod.setVisibility(View.GONE);
+
+            if(checkedId == R.id.EliminarPed) {
+                BTEliminar.setVisibility(View.VISIBLE);
+            }
+        });
+
+        // Agregar producto
+        BTAdd.setOnClickListener(v -> agregarProducto());
+
+        // Modificar según selección
+        BTMod.setOnClickListener(v -> modificarRegistro());
+
+        // Eliminar registro seleccionado
+        BTEliminar.setOnClickListener(v -> eliminarRegistro());
+
+        // Botón para regresar a la pantalla anterior
+        BTRegAd.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Intent intent = new Intent(VAdmin.this, InicioSesion.class);
+                startActivity(intent);
+            }
+        });
+
+    }
+
+    // Permite que no se pueda regresar tocando el boton regresar del telefono
+    @Override
+    public void onBackPressed() {
+
+    }
+
+    // Oculta todos los elementos secundarios
+    private void ocultarTodo() {
+        RdioProductos.setVisibility(View.GONE);
+        RdioUsuario.setVisibility(View.GONE);
+        RdioPedidos.setVisibility(View.GONE);
+        CamposAdd.setVisibility(View.GONE);
+        CamposMod.setVisibility(View.GONE);
+        BTAdd.setVisibility(View.GONE);
+        BTEliminar.setVisibility(View.GONE);
+        BTMod.setVisibility(View.GONE);
+    }
+
+    // Método para agregar un producto
+    private void agregarProducto() {
+        String nombre = Acampo1.getText().toString().trim();
+        String descripcion = Acampo2.getText().toString().trim();
+        String precioStr = Acampo3.getText().toString().trim();
+        String stockStr = Acampo4.getText().toString().trim();
+
+        if (!nombre.isEmpty() && !descripcion.isEmpty() && !precioStr.isEmpty() && !stockStr.isEmpty()) {
+            try {
+                double precio = Double.parseDouble(precioStr);
+                int stock = Integer.parseInt(stockStr);
+
+                boolean resultado = db_proy.insertarProducto(this, nombre, descripcion, precio, stock);
+                if (resultado) {
+                    mostrarProductosVertical();
+                    Acampo1.setText("");
+                    Acampo2.setText("");
+                    Acampo3.setText("");
+                    Acampo4.setText("");
+                }
+            } catch (NumberFormatException e) {
+                Toast.makeText(this, "Precio o stock inválido", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            Toast.makeText(this, "Completa todos los campos", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // Método para modificar un usuario o un pedido
+    private void modificarRegistro() {
+        if (idSeleccionado == -1) {
+            Toast.makeText(this, "Selecciona un registro primero", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (RBProductos.isChecked()) {
+            String nombre = Mcampo1.getText().toString().trim();
+            String descripcion = Mcampo2.getText().toString().trim();
+            String precioStr = Mcampo3.getText().toString().trim();
+            String stockStr = Mcampo4.getText().toString().trim();
+
+            if (!nombre.isEmpty() && !descripcion.isEmpty() && !precioStr.isEmpty()) {
+                try {
+                    double precio = Double.parseDouble(precioStr);
+                    int stock = Integer.parseInt(stockStr);
+                    db_proy.actualizarProducto(idSeleccionado, nombre, descripcion, precio, stock);
+                    mostrarProductosVertical();
+                } catch (NumberFormatException e) {
+                    Toast.makeText(this, "Precio inválido", Toast.LENGTH_SHORT).show();
+                }
+            }
+        } else if (RBUsuarios.isChecked()) {
+            String nombre = Mcampo1.getText().toString().trim();
+            String correo = Mcampo2.getText().toString().trim();
+            String usuario = Mcampo3.getText().toString().trim();
+            String contraseña = Mcampo4.getText().toString().trim();
+
+            if (!nombre.isEmpty() && !correo.isEmpty() && !usuario.isEmpty() && !contraseña.isEmpty()) {
+                db_proy.actualizarUsuario(idSeleccionado, nombre, usuario, contraseña);
+                mostrarUsuariosVertical();
+            } else {
+                Toast.makeText(this, "Completa todos los campos", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    // Método para eliminar cualquier registro
+    private void eliminarRegistro() {
+        if (idSeleccionado == -1) {
+            Toast.makeText(this, "Selecciona un registro primero", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (RBProductos.isChecked()) {
+            db_proy.eliminarProducto(idSeleccionado);
+            mostrarProductosVertical();
+        } else if (RBUsuarios.isChecked()) {
+            db_proy.eliminarUsuario(idSeleccionado);
+            mostrarUsuariosVertical();
+        } else if (RBPedidos.isChecked()) {
+            Cursor detalles = db_proy.obtenerDetalleCompra(idSeleccionado);
+            if (detalles != null) {
+                while (detalles.moveToNext()) {
+                    int idProducto = detalles.getInt(detalles.getColumnIndexOrThrow("id_producto"));
+                    int cantidad = detalles.getInt(detalles.getColumnIndexOrThrow("cantidad"));
+
+                    db_proy.aumentarStockProducto(idProducto, cantidad);
+                }
+                detalles.close();
+            }
+
+            // 3. Eliminar compra y detalles
+            db_proy.eliminarCompra(idSeleccionado);
+            mostrarPedidosVertical();
+            mostrarPedidosVertical();
+        }
+
+        Toast.makeText(this, "Registro eliminado", Toast.LENGTH_SHORT).show();
+        idSeleccionado = -1;
+    }
+
+    // Muestra todos los productos
+    private void mostrarProductosVertical() {
+        contenedorVertical.removeAllViews();
+
+        Cursor cursor = db_proy.obtenerProductos();
+        if (cursor != null) {
+            while (cursor.moveToNext()) {
+                int id = cursor.getInt(0);
+                String nombre = cursor.getString(1);
+                String descripcion = cursor.getString(2);
+                double precio = cursor.getDouble(3);
+                int stock = cursor.getInt(4);
+
+                LinearLayout tarjeta = crearTarjetaBase();
+
+                TextView tvNombre = new TextView(this);
+                tvNombre.setText("Nombre: " + nombre);
+                tvNombre.setTextColor(Color.parseColor("#FFFFFF"));
+
+                TextView tvDescripcion = new TextView(this);
+                tvDescripcion.setText("Descripcion: " + descripcion);
+                tvDescripcion.setTextColor(Color.parseColor("#FFFFFF"));
+
+                TextView tvPrecio = new TextView(this);
+                tvPrecio.setText("Precio: $" + precio);
+                tvPrecio.setTextColor(Color.parseColor("#FFFFFF"));
+
+                TextView tvStock = new TextView(this);
+                tvStock.setText("Stock: " + stock);
+                tvStock.setTextColor(Color.parseColor("#FFFFFF"));
+
+                Button btnSeleccionar = new Button(this);
+                btnSeleccionar.setText("Seleccionar");
+                btnSeleccionar.setTextColor(Color.parseColor("#FFFFFF"));
+                btnSeleccionar.setOnClickListener(v -> {
+                    idSeleccionado = id;
+                    Mcampo1.setText(nombre);
+                    Mcampo2.setText(descripcion);
+                    Mcampo3.setText(String.valueOf(precio));
+                    Mcampo4.setText(String.valueOf(stock));
+                });
+
+                tarjeta.addView(tvNombre);
+                tarjeta.addView(tvDescripcion);
+                tarjeta.addView(tvPrecio);
+                tarjeta.addView(tvStock);
+                tarjeta.addView(btnSeleccionar);
+
+                contenedorVertical.addView(tarjeta);
+            }
+            cursor.close(); // importante
+        }
+    }
+
+    // Muestra todos los Usuarios
+    private void mostrarUsuariosVertical() {
+        contenedorVertical.removeAllViews();
+
+        Cursor cursor = db_proy.obtenerUsuarios();
+        if (cursor != null) {
+            while (cursor.moveToNext()) {
+                int id = cursor.getInt(0);
+                String nombre = cursor.getString(1);
+                String apellido = cursor.getString(2);
+                String correo = cursor.getString(3);
+                String usuario = cursor.getString(4);
+                String tipoUsuario = cursor.getString(5);
+                String contraseña = cursor.getString(6);
+
+                LinearLayout tarjeta = crearTarjetaBase();
+
+                TextView tvNombre = new TextView(this);
+                tvNombre.setText("Nombre: " + nombre);
+                tvNombre.setTextColor(Color.parseColor("#FFFFFF"));
+
+                TextView tvApellido = new TextView(this);
+                tvApellido.setText("Apellido: " + apellido);
+                tvApellido.setTextColor(Color.parseColor("#FFFFFF"));
+
+                TextView tvCorreo = new TextView(this);
+                tvCorreo.setText("Correo: " + correo);
+                tvCorreo.setTextColor(Color.parseColor("#FFFFFF"));
+
+                TextView tvUsuario = new TextView(this);
+                tvUsuario.setText("Usuario: " + usuario);
+                tvUsuario.setTextColor(Color.parseColor("#FFFFFF"));
+
+                TextView tvTUsuario = new TextView(this);
+                tvTUsuario.setText("Tipo de Usuario: " + tipoUsuario);
+                tvTUsuario.setTextColor(Color.parseColor("#FFFFFF"));
+
+                TextView tvContraseña = new TextView(this);
+                tvContraseña.setText("Contraseña: " + contraseña);
+                tvContraseña.setTextColor(Color.parseColor("#FFFFFF"));
+
+                Button btnSeleccionar = new Button(this);
+                btnSeleccionar.setText("Seleccionar");
+                btnSeleccionar.setTextColor(Color.parseColor("#FFFFFF"));
+                btnSeleccionar.setOnClickListener(v -> {
+                    idSeleccionado = id;
+                    Mcampo1.setText(nombre);
+                    Mcampo2.setText(correo);
+                    Mcampo3.setText(usuario);
+                    Mcampo4.setText(contraseña);
+                });
+
+                tarjeta.addView(tvNombre);
+                tarjeta.addView(tvApellido);
+                tarjeta.addView(tvCorreo);
+                tarjeta.addView(tvUsuario);
+                tarjeta.addView(tvTUsuario);
+                tarjeta.addView(tvContraseña);
+                tarjeta.addView(btnSeleccionar);
+
+                contenedorVertical.addView(tarjeta);
+            }
+            cursor.close();
+        }
+    }
+
+    // Muestra todos los pedidos
+    private void mostrarPedidosVertical() {
+        contenedorVertical.removeAllViews();
+        Cursor cursor = db_proy.obtenerCompras();
+        if (cursor != null) {
+            while (cursor.moveToNext()) {
+                int id = cursor.getInt(0);
+                int idCliente = cursor.getInt(1);
+                String fecha = cursor.getString(3);
+                double total = cursor.getDouble(4);
+                String nombreCliente = cursor.getString(5);
+
+                LinearLayout tarjeta = crearTarjetaBase();
+
+                TextView tvId = new TextView(this);
+                tvId.setText("ID Compra: " + id);
+                tvId.setTextColor(Color.parseColor("#FFFFFF"));
+
+                TextView tvCliente = new TextView(this);
+                tvCliente.setText("Cliente: " + nombreCliente);
+                tvCliente.setTextColor(Color.parseColor("#FFFFFF"));
+
+                TextView tvFecha = new TextView(this);
+                tvFecha.setText("Fecha: " + fecha);
+                tvFecha.setTextColor(Color.parseColor("#FFFFFF"));
+
+                TextView tvTotal = new TextView(this);
+                tvTotal.setText("Total: $" + total);
+                tvTotal.setTextColor(Color.parseColor("#FFFFFF"));
+
+                tarjeta.addView(tvId);
+                tarjeta.addView(tvCliente);
+                tarjeta.addView(tvFecha);
+                tarjeta.addView(tvTotal);
+
+                //  Obtener detalles de la compra
+                Cursor detalles = db_proy.obtenerDetalleCompra(id);
+                if (detalles != null) {
+                    while (detalles.moveToNext()) {
+                        int idProducto = detalles.getInt(2);
+                        int cantidad = detalles.getInt(3);
+                        double precio = detalles.getDouble(4);
+
+                        String nombreProducto = db_proy.obtenerNombreProductoPorId(idProducto);
+
+                        // Crear un TextView para cada detalle
+                        TextView tvDetalle = new TextView(this);
+                        tvDetalle.setText(nombreProducto + " | Cantidad: " + cantidad + " | Precio: $" + precio);
+                        tvDetalle.setTextColor(Color.parseColor("#FFFFFF"));
+                        tarjeta.addView(tvDetalle);
+                    }
+                    detalles.close();
+                }
+
+                Button btnSeleccionar = new Button(this);
+                btnSeleccionar.setText("Seleccionar");
+                btnSeleccionar.setOnClickListener(v -> {
+                    idSeleccionado = id;
+                    Toast.makeText(this, "Pedido seleccionado ID: " + id, Toast.LENGTH_SHORT).show();
+                });
+
+                tarjeta.addView(btnSeleccionar);
+
+                contenedorVertical.addView(tarjeta);
+            }
+            cursor.close();
+        }
+    }
+
+    // Crea las tarjetas para mostrar los registros
+    private LinearLayout crearTarjetaBase() {
+        LinearLayout tarjeta = new LinearLayout(this);
+        tarjeta.setOrientation(LinearLayout.VERTICAL);
+        tarjeta.setPadding(20, 20, 20, 20);
+        tarjeta.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        ));
+        tarjeta.setElevation(8);
+        return tarjeta;
+    }
+}
+
+
+// Gabriel Cortez, José Ramos, Kevin Rudas, 9IL-141
