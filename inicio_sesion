@@ -1,0 +1,116 @@
+package com.example.elixiresdelavida;
+
+// Importamos librerias necesarias
+import android.content.Intent;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.database.Cursor;
+import android.widget.*;
+import androidx.activity.EdgeToEdge;
+import androidx.appcompat.app.AppCompatActivity;
+
+public class InicioSesion extends AppCompatActivity {
+
+    // Inicializamos los controles
+    EditText ETusuario, ETcontrasena;
+    Button BTiniciarSesion, BTirRegistro, BTreg, BTrec;
+    DB_Proy dbProy;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        EdgeToEdge.enable(this);
+        setContentView(R.layout.activity_inicio_sesion);
+
+        // Se crea una instancia de la Base de Datos
+        dbProy = new DB_Proy(this);
+
+        // Se vinculan los controles
+        BTiniciarSesion = (Button) findViewById(R.id.btnIniciar);
+        BTirRegistro = (Button) findViewById(R.id.btnRegistrarse);
+        BTreg = (Button) findViewById(R.id.btnregresarII);
+        BTrec = (Button) findViewById(R.id.btnBackup);
+        ETusuario = (EditText) findViewById(R.id.usuario);
+        ETcontrasena= (EditText) findViewById(R.id.Contraseña);
+
+        // Botón que verifica si se ejecuta de manera correcta el inicio de sesión, o de lo contrario no permite avanzar
+        BTiniciarSesion.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                // Se crean variables necesaria
+                String usuarioIniciando = ETusuario.getText().toString();
+                String contraseñaIniciando = ETcontrasena.getText().toString();
+                Intent intent = new Intent(InicioSesion.this, VAdmin.class);
+                Intent intent2 = new Intent(InicioSesion.this, VClienteOnl.class);
+                Intent intent3 = new Intent(InicioSesion.this, VCajero.class);
+
+                // Cursor para recorrer la consulta
+                Cursor cursorUsuario = dbProy.obtenerUsuario(usuarioIniciando, contraseñaIniciando);
+
+                // Se recorre la consulta si existe
+                if (cursorUsuario != null && cursorUsuario.moveToFirst()) {
+                    String usuarioDB = cursorUsuario.getString(cursorUsuario.getColumnIndexOrThrow(DB_Proy.COLUMN_USUARIO));
+                    String contrasenaDB = cursorUsuario.getString(cursorUsuario.getColumnIndexOrThrow(DB_Proy.COLUMN_CONTRASEÑA));
+                    String tipousuarioDB = cursorUsuario.getString(cursorUsuario.getColumnIndexOrThrow(DB_Proy.COLUMN_TIPO_USUARIO));
+                    int id_usuario = cursorUsuario.getInt(cursorUsuario.getColumnIndexOrThrow(DB_Proy.COLUMN_ID_US));
+
+                    // Verifica que exista el usuario o no permite el acceso
+                    if (usuarioIniciando.equals(usuarioDB) && contraseñaIniciando.equals(contrasenaDB)) {
+                        Toast.makeText(InicioSesion.this, "Iniciando Sesión", Toast.LENGTH_SHORT).show();
+                        ETusuario.setText("");
+                        ETcontrasena.setText("");
+
+                        switch (tipousuarioDB.toLowerCase()) {
+                            case "administrador":
+                                intent.putExtra("id_admininistrador", id_usuario);
+                                startActivity(intent);
+                                break;
+                            case "cliente":
+                                intent2.putExtra("id_cliente", id_usuario);
+                                startActivity(intent2);
+                                break;
+                            case "cajera":
+                                intent3.putExtra("id_cajera", id_usuario);
+                                startActivity(intent3);
+                                break;
+                            default:
+                                Toast.makeText(InicioSesion.this, "Tipo de usuario no reconocido", Toast.LENGTH_SHORT).show();
+                                break;
+                        }
+                    } else {
+                        Toast.makeText(InicioSesion.this, "Contraseña incorrecta", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Toast.makeText(InicioSesion.this, "Usuario no registrado", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        // Botón que lleva al registro
+        BTirRegistro.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Intent intent = new Intent(InicioSesion.this, Registro.class);
+                startActivity(intent);
+            }
+        });
+
+        // Botón que lleva a la pantalla anterior
+        BTreg.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Intent intent = new Intent(InicioSesion.this, MainActivity.class);
+                startActivity(intent);
+            }
+        });
+
+        // Botón que lleva a recuperar la contraseña
+        BTrec.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                Intent intent = new Intent(InicioSesion.this, RecuperarContra.class);
+                startActivity(intent);
+            }
+        });
+    }
+}
+
+// Gabriel Cortez, José Ramos, Kevin Rudas, 9IL-141
